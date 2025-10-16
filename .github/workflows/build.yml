@@ -28,7 +28,6 @@ jobs:
         run: dotnet --info
 
       - name: Restore dependencies (with runtime)
-        # restore with --runtime to ensure project.assets.json contains net8.0-windows/<rid> entries
         run: dotnet restore VideoDownloader/VideoDownloader.csproj --runtime ${{ matrix.rid }}
 
       - name: Build
@@ -36,24 +35,21 @@ jobs:
 
       - name: Publish single-file self-contained EXE
         run: |
-          dotnet publish VideoDownloader/VideoDownloader.csproj \
-            -c Release \
-            -r ${{ matrix.rid }} \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:PublishTrimmed=false \
-            -p:PublishReadyToRun=true \
-            -o ${{ runner.workspace }}/artifacts
+          dotnet publish VideoDownloader/VideoDownloader.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:PublishReadyToRun=true -o "${{ runner.workspace }}\artifacts"
 
       - name: Download yt-dlp (optional helper)
+        # Use PowerShell-compatible command on windows runner
+        shell: pwsh
         run: |
-          setlocal enabledelayedexpansion
-          curl -L -f -o "${{ runner.workspace }}/artifacts/yt-dlp.exe" \
-            https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe || echo "yt-dlp download failed (non-fatal)"
-          endlocal
+          $out = "${{ runner.workspace }}\artifacts\yt-dlp.exe"
+          try {
+            Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile $out -UseBasicParsing -ErrorAction Stop
+          } catch {
+            Write-Host "yt-dlp download failed (non-fatal): $($_.Exception.Message)"
+          }
 
       - name: List artifacts
-        run: dir ${{ runner.workspace }}/artifacts
+        run: dir "${{ runner.workspace }}\artifacts"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
